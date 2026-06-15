@@ -9,6 +9,8 @@ import news from "../../assets/news.webp";
 const Writerindex = () => {
   const { store } = useContext(storeContext);
   const [news, setNews] = useState([]);
+  const totalViews = news.reduce((s, n) => s + (n.count || 0), 0);
+  const sortedNews = [...news].sort((a, b) => (b.count || 0) - (a.count || 0));
 
   const get_news = async () => {
     try {
@@ -56,12 +58,17 @@ const Writerindex = () => {
 
   return (
     <div className="mt-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         {[
           {
             title: "Writer Total News",
             value: stats.totalNews,
             color: "text-red-500",
+          },
+          {
+            title: "Total Views",
+            value: totalViews,
+            color: "text-green-500",
           },
           {
             title: "Writer Pending News",
@@ -112,13 +119,13 @@ const Writerindex = () => {
                 <th className="py-4 px-6 text-left">Title</th>
                 <th className="py-4 px-6 text-left">Image</th>
                 <th className="py-4 px-6 text-left">Category</th>
-                <th className="py-4 px-6 text-left">Date</th>
+                <th className="py-4 px-6 text-left">Views</th>
                 <th className="py-4 px-6 text-left">Status</th>
-                <th className="py-4 px-6 text-left">Action</th>
+                <th className="py-4 px-6 text-left">Preview</th>
               </tr>
             </thead>
             <tbody className="text-gray-600">
-              {news.slice(0, 5).map((n, index) => (
+              {sortedNews.slice(0, 5).map((n, index) => (
                 <tr key={index} className="border-t">
                   <td className="py-4 px-6">{index + 1}</td>
                   <td className="py-4 px-6">{n.title.slice(0, 15)}...</td>
@@ -130,7 +137,7 @@ const Writerindex = () => {
                     />
                   </td>
                   <td className="py-4 px-6">{n.category}</td>
-                  <td className="py-4 px-6">{n.date}</td>
+                  <td className="py-4 px-6">{n.count}</td>
                   <td className="py-4 px-6">
                     {n.status === "pending" && (
                       <span className="px-2 py-[2px] bg-blue-200 text-blue-800 rounded-md text-xs">
