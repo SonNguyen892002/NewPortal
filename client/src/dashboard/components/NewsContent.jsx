@@ -91,7 +91,12 @@ const NewsContent = () => {
     loader: false,
   });
 
-  const update_status = async (status, news_id) => {
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [modalNews, setModalNews] = useState(null);
+  const [modalStatus, setModalStatus] = useState("");
+  const [modalDescription, setModalDescription] = useState("");
+
+  const update_status = async (status, news_id, description = "") => {
     try {
       set_res({
         id: news_id,
@@ -99,7 +104,7 @@ const NewsContent = () => {
       });
       const { data } = await axios.put(
         `${base_url}/api/news/status-update/${news_id}`,
-        { status },
+        { status, description },
         {
           headers: {
             Authorization: `Bearer ${store.token}`,
@@ -178,7 +183,12 @@ const NewsContent = () => {
                     <td className="py-4 px-6">
                       {n.status === "pending" && (
                         <span
-                          onClick={() => update_status("active", n._id)}
+                          onClick={() => {
+                            setModalNews(n);
+                            setModalStatus("");
+                            setModalDescription("");
+                            setShowStatusModal(true);
+                          }}
                           className="px-2 py-[2px] bg-blue-200 text-blue-800 rounded-md text-xs cursor-pointer"
                         >
                           {res.loader && res.id === n._id
@@ -188,7 +198,12 @@ const NewsContent = () => {
                       )}
                       {n.status === "active" && (
                         <span
-                          onClick={() => update_status("deactive", n._id)}
+                          onClick={() => {
+                            setModalNews(n);
+                            setModalStatus("");
+                            setModalDescription("");
+                            setShowStatusModal(true);
+                          }}
                           className="px-2 py-[2px] bg-green-200 text-green-800 rounded-md text-xs cursor-pointer"
                         >
                           {res.loader && res.id === n._id
@@ -198,7 +213,12 @@ const NewsContent = () => {
                       )}
                       {n.status === "deactive" && (
                         <span
-                          onClick={() => update_status("active", n._id)}
+                          onClick={() => {
+                            setModalNews(n);
+                            setModalStatus("");
+                            setModalDescription("");
+                            setShowStatusModal(true);
+                          }}
                           className="px-2 py-[2px] bg-red-200 text-red-800 rounded-md text-xs cursor-pointer"
                         >
                           {res.loader && res.id === n._id
@@ -312,6 +332,67 @@ const NewsContent = () => {
             description: selectedNews.description,
           }}
         />
+      )}
+
+      {showStatusModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">
+              Change Status & Notify Writer
+            </h3>
+            <div className="mb-3">
+              <label className="block text-sm font-medium mb-1">
+                Select Status
+              </label>
+              <select
+                value={modalStatus}
+                onChange={(e) => setModalStatus(e.target.value)}
+                className="w-full px-3 py-2 border rounded"
+              >
+                <option value="">-- Select --</option>
+                <option value="pending">pending</option>
+                <option value="active">active</option>
+                <option value="deactive">deactive</option>
+              </select>
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1">
+                Reason (optional)
+              </label>
+              <input
+                value={modalDescription}
+                onChange={(e) => setModalDescription(e.target.value)}
+                placeholder="Enter reason for status change"
+                className="w-full px-3 py-2 border rounded"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowStatusModal(false)}
+                className="px-4 py-2 rounded bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!modalStatus) {
+                    toast.error("Please select a status");
+                    return;
+                  }
+                  await update_status(
+                    modalStatus,
+                    modalNews._id,
+                    modalDescription,
+                  );
+                  setShowStatusModal(false);
+                }}
+                className="px-4 py-2 rounded bg-blue-500 text-white"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

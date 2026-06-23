@@ -26,6 +26,22 @@ router.put(
   middleware.auth,
   newsControllers.update_news_status,
 );
+router.post(
+  "/api/notification",
+  middleware.auth,
+  middleware.role,
+  newsControllers.create_notification,
+);
+router.get(
+  "/api/notifications",
+  middleware.auth,
+  newsControllers.get_notification,
+);
+router.put(
+  "/api/notification/read/:notif_id",
+  middleware.auth,
+  newsControllers.mark_notification_read,
+);
 
 // Frontend Api All
 router.get("/api/all/news", newsControllers.get_all_news);

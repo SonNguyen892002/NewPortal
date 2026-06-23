@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { FaImages } from "react-icons/fa6";
 import JoditEditor from "jodit-react";
@@ -14,13 +14,15 @@ const EditNews = () => {
 
   const [loader, setLoader] = useState(false);
   const [show, setShow] = useState(false);
-
   const editor = useRef(null);
+
   const [title, setTitle] = useState("");
   const [image, setImage] = useState("");
   const [img, setImg] = useState("");
   const [description, setDescription] = useState("");
   const [old_image, set_old_image] = useState("");
+  const [images, setImages] = useState([]);
+  const [imagesLoader, setImagesLoader] = useState(false);
 
   const imageHandle = (e) => {
     const { files } = e.target;
@@ -29,6 +31,178 @@ const EditNews = () => {
       setImage(files[0]);
     }
   };
+
+  const editorConfig = useMemo(
+    () => ({
+      readonly: false,
+      height: 400,
+      allowIframe: true,
+      enter: "br",
+      allowResizeTags: new Set(["img", "table", "iframe"]),
+      allowScript: true,
+      resizer: {
+        showSize: true,
+        useAspectRatio: false,
+        forImageChangeAttributes: true,
+      },
+      iframe: {
+        allow:
+          "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share",
+        // allow scripts and same-origin in the iframe sandbox so embedded previews run correctly
+        sandbox: "allow-scripts allow-same-origin",
+      },
+      buttons: [
+        "source",
+        "bold",
+        "italic",
+        "underline",
+        "fontsize",
+        "align",
+        "image",
+        "video",
+        "table",
+        "link",
+        "fullsize",
+      ],
+      cleanHTML: {
+        removeEmptyElements: false,
+        allowedStyles: {
+          "*": [
+            "width",
+            "height",
+            "float",
+            "margin",
+            "margin-left",
+            "margin-right",
+            "margin-top",
+            "margin-bottom",
+            "display",
+            "vertical-align",
+            "text-align",
+          ],
+        },
+        allowTags: {
+          iframe: {
+            src: true,
+            width: true,
+            height: true,
+            frameborder: true,
+            allow: true,
+            allowfullscreen: true,
+            referrerpolicy: true,
+            title: true,
+            style: true,
+            align: true,
+          },
+          p: {
+            style: true,
+            align: true,
+          },
+          br: true,
+          div: {
+            style: true,
+            align: true,
+          },
+          span: {
+            style: true,
+          },
+          a: {
+            href: true,
+            target: true,
+            rel: true,
+            style: true,
+          },
+          img: {
+            src: true,
+            alt: true,
+            title: true,
+            width: true,
+            height: true,
+            style: true,
+          },
+          table: {
+            style: true,
+          },
+          tr: {
+            style: true,
+          },
+          td: {
+            style: true,
+          },
+          th: {
+            style: true,
+          },
+          ul: {
+            style: true,
+          },
+          ol: {
+            style: true,
+          },
+          li: {
+            style: true,
+          },
+          strong: true,
+          em: true,
+          u: true,
+        },
+        sanitizer: (html) => {
+          try {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, "text/html");
+            doc.querySelectorAll("iframe").forEach((iframe) => {
+              const style = iframe.getAttribute("style") || "";
+              const styles = style
+                .split(";")
+                .map((item) => item.trim())
+                .filter(Boolean);
+              const styleMap = new Map();
+              styles.forEach((item) => {
+                const [key, value] = item.split(":").map((s) => s.trim());
+                if (key) {
+                  styleMap.set(key, value);
+                }
+              });
+              styleMap.set("display", "block");
+              styleMap.set("margin", "0 auto");
+              iframe.setAttribute(
+                "style",
+                Array.from(styleMap)
+                  .map(([key, value]) => `${key}: ${value}`)
+                  .join("; "),
+              );
+              // ensure sandbox permissions for YouTube embeds so scripts can run
+              try {
+                const src = iframe.getAttribute("src") || "";
+                const isYouTube = /youtube\.com|youtu\.be/.test(src);
+                if (isYouTube) {
+                  iframe.setAttribute(
+                    "sandbox",
+                    "allow-scripts allow-same-origin",
+                  );
+                } else if (iframe.hasAttribute("sandbox")) {
+                  // if other sandbox exists, ensure scripts and same-origin are allowed to avoid blocked execution
+                  const val = iframe.getAttribute("sandbox") || "";
+                  const perms = val.split(" ").filter(Boolean);
+                  if (!perms.includes("allow-scripts"))
+                    perms.push("allow-scripts");
+                  if (!perms.includes("allow-same-origin"))
+                    perms.push("allow-same-origin");
+                  iframe.setAttribute("sandbox", perms.join(" "));
+                }
+              } catch (e) {
+                // ignore
+              }
+            });
+            return doc.body.innerHTML;
+          } catch (error) {
+            return html;
+          }
+        },
+        denyTags: false,
+      },
+    }),
+    [],
+  );
 
   const update = async (e) => {
     e.preventDefault();
@@ -53,11 +227,9 @@ const EditNews = () => {
       toast.success(data.message);
     } catch (error) {
       setLoader(false);
-      toast.error(error.response.data.message);
+      toast.error(error.response?.data?.message || "Update failed");
     }
   };
-
-  const [images, setImages] = useState([]);
 
   const get_images = async () => {
     try {
@@ -66,8 +238,8 @@ const EditNews = () => {
           Authorization: `Bearer ${store.token}`,
         },
       });
-      console.log(data.images);
-      setImages(data.images);
+
+      setImages(data.images || []);
     } catch (error) {
       console.log(error);
     }
@@ -76,8 +248,6 @@ const EditNews = () => {
   useEffect(() => {
     get_images();
   }, []);
-
-  const [imagesLoader, setImagesLoader] = useState(false);
 
   const imageHandler = async (e) => {
     const files = e.target.files;
@@ -97,7 +267,7 @@ const EditNews = () => {
         },
       );
       setImagesLoader(false);
-      setImages([...images, data.images]);
+      setImages((prev) => [...prev, ...(data.images || [])]);
       toast.success(data.message);
     } catch (error) {
       console.log(error);
@@ -180,12 +350,12 @@ const EditNews = () => {
         </div>
 
         <div>
-          <div className="flex justify-between items-center mb-2 mt-4">
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-2 mt-4">
             <label
               htmlFor="description"
               className="block text-md font-medium text-gray-600"
             >
-              Description{" "}
+              Description
             </label>
             <div
               onClick={() => setShow(true)}
@@ -194,13 +364,16 @@ const EditNews = () => {
               <FaImages className="text-2xl " />
             </div>
           </div>
+
           <JoditEditor
             ref={editor}
             value={description}
+            config={editorConfig}
             tabIndex={1}
-            onBlur={(value) => setDescription(value)}
-            onChange={() => {}}
-            className="w-full border border-gray-400 rounded-md"
+            onChange={(content) => {
+              console.log("content:", content);
+              setDescription(content);
+            }}
           />
         </div>
 

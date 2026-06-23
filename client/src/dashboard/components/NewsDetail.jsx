@@ -3,11 +3,73 @@ import { IoCloseCircle } from "react-icons/io5";
 const NewsDetail = ({ setShow, data }) => {
   if (!data) return null;
 
+  const formattedDescription = data.description?.replace(
+    /<iframe\b([^>]*)>/gi,
+    (match, attrs) => {
+      let newAttrs = attrs;
+
+      // thêm style
+      if (/style\s*=/i.test(newAttrs)) {
+        newAttrs = newAttrs.replace(
+          /style\s*=\s*["']([^"']*)["']/i,
+          `style="$1; display:block; margin:0 auto"`,
+        );
+      } else {
+        newAttrs += ` style="display:block; margin:0 auto"`;
+      }
+
+      // xử lý sandbox: nếu iframe là YouTube, đảm bảo có allow-scripts và allow-same-origin
+      const srcMatch = /src\s*=\s*["']([^"']*)["']/i.exec(newAttrs);
+      const src = srcMatch ? srcMatch[1] : "";
+      const isYouTube = /youtube\.com|youtu\.be/.test(src);
+
+      if (isYouTube) {
+        if (/sandbox\s*=/i.test(newAttrs)) {
+          newAttrs = newAttrs.replace(
+            /sandbox\s*=\s*["']([^"']*)["']/i,
+            (m, value) => {
+              let permissions = value.split(" ").filter(Boolean);
+
+              if (!permissions.includes("allow-scripts")) {
+                permissions.push("allow-scripts");
+              }
+
+              if (!permissions.includes("allow-same-origin")) {
+                permissions.push("allow-same-origin");
+              }
+
+              return `sandbox="${permissions.join(" ")}"`;
+            },
+          );
+        } else {
+          newAttrs += ` sandbox="allow-scripts allow-same-origin"`;
+        }
+      } else {
+        // với iframe không phải YouTube, nếu có sandbox thì ít nhất thêm allow-same-origin & allow-scripts
+        if (/sandbox\s*=/i.test(newAttrs)) {
+          newAttrs = newAttrs.replace(
+            /sandbox\s*=\s*["']([^"']*)["']/i,
+            (m, value) => {
+              let permissions = value.split(" ").filter(Boolean);
+              if (!permissions.includes("allow-scripts"))
+                permissions.push("allow-scripts");
+              if (!permissions.includes("allow-same-origin"))
+                permissions.push("allow-same-origin");
+              return `sandbox="${permissions.join(" ")}"`;
+            },
+          );
+        }
+      }
+
+      return `<iframe${newAttrs}>`;
+    },
+  );
+
   return (
     <div className="w-screen h-screen fixed left-0 top-0 z-[9999]">
       <div className="w-full h-full relative">
         <div className="bg-black opacity-40 w-full h-full absolute top-0 left-0 z-[998]" />
-        <div className="absolute bg-white w-[50%] rounded-lg h-[85vh] overflow-y-auto left-[50%] top-[50%] z-[999] -translate-x-[50%] -translate-y-[50%] shadow-2xl">
+        <div className="absolute bg-white w-[64%] rounded-lg h-[85vh] overflow-y-auto left-[50%] top-[50%] z-[999] -translate-x-[50%] -translate-y-[50%] shadow-2xl">
           <div className="flex justify-between items-center p-6 border-b border-gray-200 sticky top-0 bg-white rounded-t-lg z-10">
             <h2 className="text-lg font-semibold">News Preview</h2>
             <button
@@ -53,7 +115,7 @@ const NewsDetail = ({ setShow, data }) => {
                   wordBreak: "break-word",
                   width: "100%",
                 }}
-                dangerouslySetInnerHTML={{ __html: data.description }}
+                dangerouslySetInnerHTML={{ __html: formattedDescription }}
               />
             </div>
           </div>

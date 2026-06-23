@@ -3,6 +3,7 @@ const cloudinary = require("cloudinary").v2;
 const newsModel = require("../models/newsModel");
 const authModel = require("../models/authModel");
 const galleryModel = require("../models/galleryModel");
+const notificationModel = require("../models/notificationModel");
 const {
   mongo: { ObjectId },
 } = require("mongoose");
@@ -149,6 +150,7 @@ class newsControllers {
           slug: title[0].trim().split(" ").join("-"),
           description: description[0],
           image: url,
+          status: "pending",
         },
         { returnDocument: "after" },
       );
@@ -203,7 +205,7 @@ class newsControllers {
   update_news_status = async (req, res) => {
     const { role } = req.userInfo;
     const { news_id } = req.params;
-    const { status } = req.body;
+    const { status, description } = req.body;
 
     if (role === "admin") {
       const news = await newsModel.findByIdAndUpdate(
@@ -211,11 +213,97 @@ class newsControllers {
         { status },
         { returnDocument: "after" },
       );
+
+      // create notification for the writer
+      try {
+        if (news) {
+          let title = "";
+          if (status === "active") title = "Bài viết của bạn đã được duyệt";
+          else if (status === "deactive") title = "Bài viết của bạn đã bị gỡ!";
+          else title = "Bài viết bị từ chối duyệt";
+
+          await notificationModel.create({
+            writerId: news.writerId,
+            writerName: news.writerName,
+            newsTitle: news.title || "",
+            title,
+            description: description || "",
+            date: moment().format("LL"),
+          });
+        }
+      } catch (err) {
+        console.log("Failed to create notification", err);
+      }
+
       return res
         .status(200)
         .json({ message: "News Status Updated Success", news });
     } else {
       return res.status(401).json({ message: "You cannot access this api" });
+    }
+  };
+
+  create_notification = async (req, res) => {
+    const { role } = req.userInfo;
+    const { writerId, writerName, newsTitle, title, description } = req.body;
+
+    if (role !== "admin") {
+      return res
+        .status(401)
+        .json({ message: "Only admin can create notifications" });
+    }
+
+    try {
+      const notif = await notificationModel.create({
+        writerId,
+        writerName,
+        newsTitle: newsTitle || "",
+        title,
+        description: description || "",
+        date: moment().format("LL"),
+      });
+
+      return res.status(201).json({ message: "Notification created", notif });
+    } catch (error) {
+      return res.status(500).json({ message: "Internal server Error" });
+    }
+  };
+
+  get_notification = async (req, res) => {
+    const { id } = req.userInfo;
+    try {
+      const notifications = await notificationModel
+        .find({ writerId: new ObjectId(id) })
+        .sort({ createdAt: -1 });
+      return res.status(200).json({ notifications });
+    } catch (error) {
+      return res.status(500).json({ message: "Internal server Error" });
+    }
+  };
+
+  mark_notification_read = async (req, res) => {
+    const { id: userId, role } = req.userInfo;
+    const { notif_id } = req.params;
+    try {
+      const notif = await notificationModel.findById(notif_id);
+      if (!notif)
+        return res.status(404).json({ message: "Notification not found" });
+      // only writer who owns the notification or admin can mark read
+      if (role !== "admin" && String(notif.writerId) !== String(userId)) {
+        return res
+          .status(401)
+          .json({ message: "You cannot mark this notification" });
+      }
+      const updated = await notificationModel.findByIdAndUpdate(
+        notif_id,
+        { read: true },
+        { returnDocument: "after" },
+      );
+      return res
+        .status(200)
+        .json({ message: "Notification marked read", notification: updated });
+    } catch (error) {
+      return res.status(500).json({ message: "Internal server Error" });
     }
   };
 

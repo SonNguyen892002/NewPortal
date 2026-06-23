@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { FaEye } from "react-icons/fa";
 import { base_url } from "../../config/config";
 import { useEffect, useState, useContext } from "react";
-import news from "../../assets/news.webp";
+import newsImg from "../../assets/news.webp";
 import axios from "axios";
 import storeContext from "../../context/storeContext";
 import NewsDetail from "../components/NewsDetail";
@@ -11,16 +11,14 @@ const Adminindex = () => {
   const { store } = useContext(storeContext);
   const [news, setNews] = useState([]);
   const [selectedNews, setSelectedNews] = useState(null);
-  const totalViews = news.reduce((s, n) => s + (n.count || 0), 0);
 
+  const totalViews = news.reduce((s, n) => s + (n.count || 0), 0);
   const sortedNews = [...news].sort((a, b) => (b.count || 0) - (a.count || 0));
 
   const get_news = async () => {
     try {
       const { data } = await axios.get(`${base_url}/api/news`, {
-        headers: {
-          Authorization: `Bearer ${store.token}`,
-        },
+        headers: { Authorization: `Bearer ${store.token}` },
       });
       setNews(data.news);
     } catch (error) {
@@ -30,6 +28,7 @@ const Adminindex = () => {
 
   useEffect(() => {
     get_news();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [start, setStart] = useState({
@@ -44,16 +43,14 @@ const Adminindex = () => {
     const fetchStars = async () => {
       try {
         const { data } = await axios.get(`${base_url}/api/news-statistics`, {
-          headers: {
-            Authorization: `Bearer ${store.token}`,
-          },
+          headers: { Authorization: `Bearer ${store.token}` },
         });
         setStart(data);
       } catch (error) {
         console.log(error);
       }
     };
-    fetchStars();
+    if (store.token) fetchStars();
   }, [store.token]);
 
   return (
@@ -65,11 +62,7 @@ const Adminindex = () => {
             value: start.totalNews,
             color: "text-red-500",
           },
-          {
-            title: "Total Views",
-            value: totalViews,
-            color: "text-green-500",
-          },
+          { title: "Total Views", value: totalViews, color: "text-green-500" },
           {
             title: "Pending News",
             value: start.pendingNews,
@@ -85,16 +78,14 @@ const Adminindex = () => {
             value: start.deactiveNews,
             color: "text-blue-500",
           },
-        ].map((start, i) => (
+        ].map((s, i) => (
           <div
             key={i}
             className="p-8 bg-white rounded-lg shadow-md flex flex-col items-center gap-2"
           >
-            <span className={`text-4xl font-bold ${start.color}`}>
-              {start.value}
-            </span>
+            <span className={`text-4xl font-bold ${s.color}`}>{s.value}</span>
             <span className="text-md font-semibold text-gray-600">
-              {start.title}
+              {s.title}
             </span>
           </div>
         ))}
@@ -132,7 +123,7 @@ const Adminindex = () => {
                   <td className="py-4 px-6">
                     <img
                       className="w-10 h-10 rounded-full object-cover"
-                      src={n.image}
+                      src={n.image || newsImg}
                       alt="news"
                     />
                   </td>
@@ -172,6 +163,7 @@ const Adminindex = () => {
           </table>
         </div>
       </div>
+
       {selectedNews && (
         <NewsDetail
           setShow={() => setSelectedNews(null)}
